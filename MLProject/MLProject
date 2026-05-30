@@ -1,0 +1,21 @@
+name: garbage-classification
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_dir:
+        type: str
+        default: "./garbage_preprocessing"
+      batch_size:
+        type: int
+        default: 32
+      epochs:
+        type: int
+        default: 10
+      learning_rate:
+        type: float
+        default: 0.001
+    command: >
+      python modelling.py
