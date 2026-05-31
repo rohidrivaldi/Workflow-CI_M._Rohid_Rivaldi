@@ -1,0 +1,176 @@
+name: CI — Garbage Classification MLOps Pipeline
+
+# Kapan workflow ini dijalankan
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # bisa juga trigger manual dari GitHub UI
+
+jobs:
+  mlops-pipeline:
+    name: Train, Log & Deploy — M. Rohid Rivaldi
+    runs-on: ubuntu-latest
+
+    env:
+      # Env vars dari GitHub Secrets (yang nanti wajib diisi di settings repo)
+      DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+      MLFLOW_TRACKING_URI: https://dagshub.com/rohidrivaldi/Workflow-CI_M._Rohid_Rivaldi.mlflow
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      DOCKER_HUB_USERNAME: rohidrivaldi
+      IMAGE_NAME: garbage-classification
+
+    steps:
+      # ===== Step 1: Run actions/checkout@v3 =====
+      - name: Run actions/checkout@v3
+        uses: actions/checkout@v3
+
+      # ===== Step 2: Set up Python 3.12.7 =====
+      - name: Set up Python 3.12.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12.7"
+
+      # ===== Step 3: Check Env =====
+      - name: Check Env
+        run: |
+          echo "=== Environment Check ==="
+          python --version
+          pip --version
+          echo "Working dir: $(pwd)"
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "========================="
+
+      # ===== Step 4: Install dependencies =====
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install mlflow==2.19.0 dagshub tensorflow scikit-learn \
+                      numpy matplotlib seaborn Pillow kaggle
+
+      # ===== Step 5: Download dan Preprocessing Dataset =====
+      - name: Download dan Preprocessing Dataset
+        run: |
+          mkdir -p raw_data MLProject/garbage_preprocessing
+          
+          # download dari Kaggle
+          kaggle datasets download \
+            -d mostafaabla/garbage-classification \
+            -p ./raw_data --unzip
+          
+          echo "Dataset berhasil di-download"
+          ls ./raw_data/
+          
+          # install split-folders buat preprocessing cepat
+          pip install split-folders Pillow
+          
+          # jalankan preprocessing sederhana (resize ke 224x224)
+          python - <<'PYEOF'
+          import os
+          from PIL import Image, UnidentifiedImageError
+          import numpy as np
+          from pathlib import Path
+
+          src = Path("./raw_data/garbage_classification")
+          dst = Path("./MLProject/garbage_preprocessing")
+          TARGET = (224, 224)
+          EXTS = {'.jpg', '.jpeg', '.png', '.bmp'}
+          total, ok, skip = 0, 0, 0
+
+          for cls_dir in sorted(src.iterdir()):
+              if not cls_dir.is_dir():
+                  continue
+              out_dir = dst / cls_dir.name
+              out_dir.mkdir(parents=True, exist_ok=True)
+              files = [f for f in cls_dir.iterdir() if f.suffix.lower() in EXTS][:15]
+              for f in files:
+                  total += 1
+                  try:
+                      img = Image.open(f).convert("RGB")
+                      img = img.resize(TARGET, Image.LANCZOS)
+                      out_path = out_dir / (f.stem + ".png")
+                      img.save(out_path)
+                      ok += 1
+                  except Exception as e:
+                      skip += 1
+              print(f"  {cls_dir.name}: {ok}/{total} ok")
+          print(f"\nDone! Total: {total}, OK: {ok}, Skip: {skip}")
+          PYEOF
+          
+          echo "Preprocessing selesai"
+          find ./MLProject/garbage_preprocessing -name "*.png" | wc -l
+
+      # ===== Step 6: Run mlflow project =====
+      - name: Run mlflow project
+        run: |
+          cd MLProject
+          mlflow run . \
+            --env-manager=local \
+            -P data_dir=./garbage_preprocessing
+        env:
+          MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
+          EPOCHS: 2
+          BATCH_SIZE: 32
+          LEARNING_RATE: 0.001
+
+      # ===== Step 7: Get latest MLflow run_id =====
+      - name: Get latest MLflow run_id
+        id: get_run_id
+        run: |
+          RUN_ID=$(python - <<'PYEOF'
+          import mlflow
+          import os
+
+          client = mlflow.MlflowClient(tracking_uri=os.environ["MLFLOW_TRACKING_URI"])
+          experiments = client.search_experiments()
+          
+          latest_run = None
+          for exp in experiments:
+              runs = client.search_runs(
+                  experiment_ids=[exp.experiment_id],
+                  order_by=["start_time DESC"],
+                  max_results=1
+              )
+              if runs:
+                  latest_run = runs[0]
+                  break
+          
+          if latest_run:
+              print(latest_run.info.run_id)
+          else:
+              print("no-run-found")
+          PYEOF
+          )
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "MLflow Run ID: $RUN_ID"
+        env:
+          MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
+
+      # ===== Step 8: Install Python dependencies =====
+      - name: Install Python dependencies
+        run: |
+          pip install mlflow==2.19.0
+
+      # ===== Step 9: Upload to GitHub =====
+      - name: Upload to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts-${{ github.run_number }}
+          path: |
+            MLProject/mlruns/
+            MLProject/model_output/
+          retention-days: 30
+
+
+      # ===== Step 9: Upload to Google Drive =====
+      - name: Upload to Google Drive
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts-${{ github.run_number }}
+          path: |
+            MLProject/mlruns/
+            MLProject/model_output/
