@@ -24,8 +24,8 @@ jobs:
       IMAGE_NAME: garbage-classification
 
     steps:
-      # ===== Step 1: Run actions/checkout@v3 =====
-      - name: Run actions/checkout@v3
+      # ===== Step 1: Checkout Repository =====
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
       # ===== Step 2: Set up Python 3.12.7 =====
@@ -45,8 +45,8 @@ jobs:
           echo "Branch: ${{ github.ref_name }}"
           echo "========================="
 
-      # ===== Step 4: Install dependencies =====
-      - name: Install dependencies
+      # ===== Step 4: Install Dependencies =====
+      - name: Install Dependencies
         run: |
           pip install --upgrade pip
           pip install mlflow==2.19.0 dagshub tensorflow scikit-learn \
@@ -104,8 +104,8 @@ jobs:
           echo "Preprocessing selesai"
           find ./MLProject/garbage_preprocessing -name "*.png" | wc -l
 
-      # ===== Step 6: Run mlflow project =====
-      - name: Run mlflow project
+      # ===== Step 6: Run MLflow Project =====
+      - name: Run MLflow Project
         run: |
           cd MLProject
           mlflow run . \
@@ -117,8 +117,8 @@ jobs:
           BATCH_SIZE: 32
           LEARNING_RATE: 0.001
 
-      # ===== Step 7: Get latest MLflow run_id =====
-      - name: Get latest MLflow run_id
+      # ===== Step 7: Get Latest MLflow Run ID =====
+      - name: Get Latest MLflow Run ID
         id: get_run_id
         run: |
           RUN_ID=$(python - <<'PYEOF'
@@ -150,13 +150,13 @@ jobs:
         env:
           MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
 
-      # ===== Step 8: Install Python dependencies =====
-      - name: Install Python dependencies
+      # ===== Step 8: Install Python Dependencies =====
+      - name: Install Python Dependencies
         run: |
           pip install mlflow==2.19.0
 
-      # ===== Step 9: Upload to GitHub =====
-      - name: Upload to GitHub
+      # ===== Step 9: Upload Artifacts ke GitHub =====
+      - name: Upload Artifacts ke GitHub
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-artifacts-${{ github.run_number }}
@@ -165,12 +165,61 @@ jobs:
             MLProject/model_output/
           retention-days: 30
 
+      # ===== Step 10: Build Docker Model =====
+      - name: Build Docker Model
+        run: |
+          echo "Building Docker image dari folder model lokal (mencegah 500 error DagsHub)"
+          cd MLProject
+          mlflow models build-docker \
+            --model-uri "./mlflow_model" \
+            --name "${{ env.IMAGE_NAME }}" \
+            --env-manager "local" \
+            --enable-mlserver
 
-      # ===== Step 9: Upload to Google Drive =====
-      - name: Upload to Google Drive
-        uses: actions/upload-artifact@v4
+      # ===== Step 11: Log in to Docker Hub =====
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          name: mlflow-artifacts-${{ github.run_number }}
-          path: |
-            MLProject/mlruns/
-            MLProject/model_output/
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # ===== Step 12: Tag Docker Image =====
+      - name: Tag Docker Image
+        run: |
+          docker tag \
+            "${{ env.IMAGE_NAME }}:latest" \
+            "${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+          
+          # juga tag dengan run number buat versioning
+          docker tag \
+            "${{ env.IMAGE_NAME }}:latest" \
+            "${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:run-${{ github.run_number }}"
+          
+          echo "Docker image berhasil di-tag"
+
+      # ===== Step 13: Push Docker Image =====
+      - name: Push Docker Image
+        run: |
+          docker push \
+            "${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+          
+          docker push \
+            "${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:run-${{ github.run_number }}"
+          
+          echo "✅ Docker image berhasil di-push ke Docker Hub!"
+          echo "  Image: docker pull ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+
+      # ===== Ringkasan Akhir =====
+      - name: Ringkasan Pipeline
+        run: |
+          echo "=========================================="
+          echo "  CI PIPELINE SELESAI — M. Rohid Rivaldi"
+          echo "=========================================="
+          echo "  Run #      : ${{ github.run_number }}"
+          echo "  Trigger    : ${{ github.event_name }}"
+          echo "  Branch     : ${{ github.ref_name }}"
+          echo "  MLflow ID  : ${{ steps.get_run_id.outputs.run_id }}"
+          echo "  Docker Hub : rohidrivaldi/garbage-classification:latest"
+          echo "=========================================="
+
+# Docker step added
