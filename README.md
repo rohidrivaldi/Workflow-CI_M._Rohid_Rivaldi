@@ -20,23 +20,23 @@ Workflow-CI_M._Rohid_Rivaldi/
 
 Workflow CI ini otomatis berjalan setiap kali ada **push ke branch `main`**. Langkah-langkahnya:
 
-1. Checkout repository
+1. Run actions/checkout@v3
 2. Set up Python 3.12.7
-3. Check environment
+3. Check Env
 4. Install dependencies
-5. Download & preprocessing dataset (dari Kaggle)
-6. Run MLflow Project (training model)
-7. Get latest MLflow run ID
+5. Download dan Preprocessing Dataset
+6. Run mlflow project
+7. Get latest MLflow run_id
 8. Install Python dependencies
-9. Upload artifacts ke GitHub
-10. Build Docker image dari MLflow model
-11. Login ke Docker Hub
-12. Tag Docker image
-13. Push Docker image ke Docker Hub
-14. *(Post: Logout Docker Hub)*
-15. *(Post: Python teardown)*
-16. *(Post: Checkout cleanup)*
-17. *(Complete job)*
+9. Upload to GitHub
+10. Build Docker Model
+11. Log in to Docker Hub
+12. Tag Docker Image
+13. Push Docker Image
+14. Post Log in to Docker Hub
+15. Post Set up Python 3.12.7
+16. Post Run actions/checkout@v3
+17. Complete job
 
 ## 🔐 GitHub Secrets yang Diperlukan
 
