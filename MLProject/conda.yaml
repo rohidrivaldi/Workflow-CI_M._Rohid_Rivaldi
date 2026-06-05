@@ -19,4 +19,3 @@ dependencies:
     - kaggle>=1.6.0
 
 # Version fixed
-# Tweak dependency version compatibility

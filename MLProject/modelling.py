@@ -34,17 +34,12 @@ KELAS = [
 ]
 
 # ===== SETUP DAGSHUB =====
-import dagshub.auth
-token = os.environ.get("DAGSHUB_TOKEN") or os.environ.get("DAGSHUB_USER_TOKEN")
-if token:
-    print("DagsHub token found in environment variables. Adding app token...")
-    dagshub.auth.add_app_token(token)
+# Kita langsung pakai standard MLflow tracking credentials & URI agar non-interaktif dan tidak ada prompt OAuth.
+token = os.environ.get("DAGSHUB_TOKEN") or os.environ.get("DAGSHUB_USER_TOKEN") or "50cfb85288aacb94621c6fc91b6fb53dc0e3dd4f"
+os.environ["MLFLOW_TRACKING_USERNAME"] = "rohidrivaldi"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = token
 
-dagshub.init(
-    repo_owner="rohidrivaldi",
-    repo_name="Workflow-CI_M._Rohid_Rivaldi",
-    mlflow=True
-)
+mlflow.set_tracking_uri("https://dagshub.com/rohidrivaldi/Workflow-CI_M._Rohid_Rivaldi.mlflow")
 
 mlflow.tensorflow.autolog(log_models=True)
 print("DagsHub + MLflow ready!")
@@ -150,7 +145,7 @@ def main():
         import shutil
         if os.path.exists("./mlflow_model"):
             shutil.rmtree("./mlflow_model")
-        mlflow.tensorflow.save_model(model, path="./mlflow_model")
+        mlflow.tensorflow.save_model(model, path="./mlflow_model", conda_env="./conda.yaml")
         print("MLflow model disimpan secara lokal ke ./mlflow_model dengan conda.yaml")
 
 

@@ -24,8 +24,8 @@ jobs:
       IMAGE_NAME: garbage-classification
 
     steps:
-      # ===== Step 1: Checkout Repository =====
-      - name: Checkout Repository
+      # ===== Step 1: Run actions/checkout@v3 =====
+      - name: Run actions/checkout@v3
         uses: actions/checkout@v3
 
       # ===== Step 2: Set up Python 3.12.7 =====
@@ -45,8 +45,8 @@ jobs:
           echo "Branch: ${{ github.ref_name }}"
           echo "========================="
 
-      # ===== Step 4: Install Dependencies =====
-      - name: Install Dependencies
+      # ===== Step 4: Install dependencies =====
+      - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install mlflow==2.19.0 dagshub tensorflow scikit-learn \
@@ -104,8 +104,8 @@ jobs:
           echo "Preprocessing selesai"
           find ./MLProject/garbage_preprocessing -name "*.png" | wc -l
 
-      # ===== Step 6: Run MLflow Project =====
-      - name: Run MLflow Project
+      # ===== Step 6: Run mlflow project =====
+      - name: Run mlflow project
         run: |
           cd MLProject
           mlflow run . \
@@ -117,8 +117,8 @@ jobs:
           BATCH_SIZE: 32
           LEARNING_RATE: 0.001
 
-      # ===== Step 7: Get Latest MLflow Run ID =====
-      - name: Get Latest MLflow Run ID
+      # ===== Step 7: Get latest MLflow run_id =====
+      - name: Get latest MLflow run_id
         id: get_run_id
         run: |
           RUN_ID=$(python - <<'PYEOF'
@@ -150,13 +150,13 @@ jobs:
         env:
           MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
 
-      # ===== Step 8: Install Python Dependencies =====
-      - name: Install Python Dependencies
+      # ===== Step 8: Install Python dependencies =====
+      - name: Install Python dependencies
         run: |
           pip install mlflow==2.19.0
 
-      # ===== Step 9: Upload Artifacts ke GitHub =====
-      - name: Upload Artifacts ke GitHub
+      # ===== Step 9: Upload to GitHub =====
+      - name: Upload to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-artifacts-${{ github.run_number }}
