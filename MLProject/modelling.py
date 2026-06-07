@@ -116,9 +116,7 @@ def main():
     model = build_model()
     
     with mlflow.start_run(run_name="ci_training_run"):
-        mlflow.log_param("data_dir", DATA_DIR)
-        mlflow.log_param("base_model", "EfficientNetB0")
-        
+        # autolog (lihat atas) sudah handle param/metric/model otomatis — tidak ada manual log
         callbacks = [
             keras.callbacks.EarlyStopping(monitor="val_accuracy", patience=3, restore_best_weights=True),
             keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=2)
@@ -133,8 +131,7 @@ def main():
         )
         
         best_val_acc = max(history.history["val_accuracy"])
-        mlflow.log_metric("best_val_accuracy", best_val_acc)
-        
+
         print(f"\n✅ Training selesai! Best Val Acc: {best_val_acc:.4f}")
         
         # simpan model
